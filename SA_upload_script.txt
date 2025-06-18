@@ -1,4 +1,0 @@
-open sftp://kinsella@rendezvous.apl.washington.edu:2022/ -hostkey=acceptnew -privatekey=C:\Users\mahad\Documents\EKAMSAT\IOP1\Situational_Awareness\id_ed25519.ppk
-synchronize remote U:\For_Science\Situational_Awareness_Processing\data /incoming
-close
-exit

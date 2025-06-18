@@ -1,0 +1,7 @@
+metpy==1.7.0
+netCDF4==1.7.2
+numpy==2.2.6
+pandas==2.2.3
+pycoare==0.3.0
+scipy==1.15.3
+xarray==2025.4.0

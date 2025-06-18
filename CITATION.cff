@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "R/V Thomas G. Thompson Automated Realtime Data Processing"
+version: "1.0.0"
+authors:
+  - family-names: Kinsella
+    given-names: Alex
+  - family-names: Kannad
+    given-names: Ankitha
+date-released: 2025-06-18
+license: MIT
+# Add DOI here after Zenodo release:
+# doi: 10.5281/zenodo.xxxxxxx

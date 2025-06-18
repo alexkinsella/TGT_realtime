@@ -1,6 +1,6 @@
 # TGT_realtime
 
-Python code for real-time processing of shipboard instruments on the R/V Thomas G. Thompson. It generates continuously updating `.nc` and `.mat` files from GPS, TSG, MET, and ADCP data, and computes bulk air-sea fluxes using the COARE 3.5 algorithm.
+Python code for real-time processing of shipboard instruments on the R/V Thomas G. Thompson. It generates continuously updating `.nc` and `.mat` files from GPS, TSG, MET, ADCP, and WAMOS data, and computes bulk air-sea fluxes using the COARE 3.5 algorithm.
 
 If you're heading out on a cruise aboard the Thompson, this package can help generate situational awareness files and real-time visualizations directly from shipboard data.
 
@@ -118,7 +118,7 @@ The codebase consists of five core files:
 ## License and Citation
 
 Licensed under the **MIT License**.  
-If you use this software, please cite it appropriately. (Add DOI once available.)
+If you use this software, please cite it appropriately. (Add DOI)
 
 ---
 
@@ -126,4 +126,4 @@ If you use this software, please cite it appropriately. (Add DOI once available.
 
 Maintainers:
 - Alex Kinsella (alex.kinsella@whoi.edu)
-- Ankitha Kannad
+- Ankitha Kannad (akannad@ucsd.edu)

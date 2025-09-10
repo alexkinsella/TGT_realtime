@@ -118,7 +118,7 @@ The codebase consists of five core files:
 ## License and Citation
 
 Licensed under the **MIT License**.  
-If you use this software, please cite it appropriately. (Add DOI)
+If this software is useful for your cruise, please consider citing this DOI: (Add DOI)
 
 ---
 

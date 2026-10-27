@@ -6,11 +6,12 @@ authors:
   - family-names: Kinsella
     given-names: Alex
     email: alex.kinsella@whoi.edu
+    orcid: "https://orcid.org/0000-0003-3586-686X"
   - family-names: Kannad
     given-names: Ankitha
     orcid: "https://orcid.org/0000-0002-9026-491X"
 date-released: 2026-10-27
 license: MIT
 repository-code: "https://github.com/alexkinsella/TGT_realtime"
-# Add DOI here after the Zenodo release:
-# doi: 10.5281/zenodo.xxxxxxx
+# Concept DOI: always resolves to the latest version
+doi: 10.5281/zenodo.23695975

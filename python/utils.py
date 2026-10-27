@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import glob
 import os
+import subprocess
+import tempfile
 from datetime import datetime, timedelta
 
 
@@ -35,7 +37,8 @@ def circular_mean_deg(arr):
     mean_angle = np.arctan2(np.nanmean(np.sin(radians)), np.nanmean(np.cos(radians)))
     # Convert back to degrees and ensure 0-360 range
     mean_deg = np.rad2deg(mean_angle) % 360
-    return mean_deg
+    # Rounding can turn a tiny negative angle into exactly 360
+    return 0.0 if mean_deg == 360 else mean_deg
 
 def convert_nav(raw):
     """Convert NMEA position strings like 4112.345 to decimal degrees."""
@@ -71,3 +74,19 @@ def days_to_datetime64(days, ref=np.datetime64('2025-01-01T00:00:00')):
     ms = np.array(days) * ms_per_day
     # Add to reference date in milliseconds
     return ref + ms.astype('timedelta64[ms]')
+
+def write_record_nc(ds, savename, dim='dday'):
+    """Write ds to savename with dim as the record (unlimited) dimension, so ncrcat can join files."""
+    # Temp file next to the output, so runs don't depend on the working directory
+    fd, tmpname = tempfile.mkstemp(suffix='.nc', dir=os.path.dirname(savename))
+    os.close(fd)
+    try:
+        ds.to_netcdf(tmpname)
+        subprocess.run(['ncks', '--mk_rec_dmn', dim, tmpname, '-O', '-o', savename], check=True)
+    finally:
+        if os.path.isfile(tmpname):
+            os.remove(tmpname)
+
+def read_raw_csv(files, **kwargs):
+    """Read and concatenate all of a day's .Raw files (the logger can start a new file mid-day)."""
+    return pd.concat([pd.read_csv(f, **kwargs) for f in sorted(files)], ignore_index=True)

@@ -5,7 +5,10 @@ import pandas as pd
 from datetime import datetime, timedelta
 from scipy.interpolate import interp1d
 import xarray as xr
-from utils import print_status, days_since_2025, circular_mean_deg, convert_nav, make_bins
+from utils import (
+    print_status, days_since_2025, circular_mean_deg, convert_nav, make_bins,
+    write_record_nc, read_raw_csv
+)
 import subprocess
 from scipy.io import savemat
 from pycoare import coare_35
@@ -57,11 +60,7 @@ def read_gps(logstart, logend, sharedrive, datadrive, cruise_ID):
         ds['dday'].attrs['long_name'] = 'decimal day (UTC)'
         ds['dday'].attrs['units'] = 'days since Jan 01, 2025'
         
-        ds.to_netcdf('tmp.nc')
-        ds.close()
-        cmd = "ncks --mk_rec_dmn dday " + 'tmp.nc' + " -O -o " + savename
-        subprocess.run(cmd, check=True, shell=True)
-        os.remove('tmp.nc')
+        write_record_nc(ds, savename)
 
         print_status(f"Created GPS file for {logstart}")
     else:
@@ -70,14 +69,12 @@ def read_gps(logstart, logend, sharedrive, datadrive, cruise_ID):
 def read_gps_PASHR(gpsdir, tmin, tmax, bin_edges, bin_centers):
     result = {}
     loaddate = tmin.strftime('%Y%m%d')
-    search = f'POSMV-V5-PASHR-RAW_{loaddate}-'
-    raw_files = [f for f in os.listdir(gpsdir) if f.startswith(search) and f.endswith('.Raw')]
+    raw_files = glob.glob(os.path.join(gpsdir, f'POSMV-V5-PASHR-RAW_{loaddate}-*.Raw'))
     if not raw_files:
         result['status'] = 1
         return result
-    loadname = os.path.join(gpsdir, raw_files[0])
     try:
-        df = pd.read_csv(loadname, header=None, delimiter=',', dtype=str, names=[str(i) for i in range(14)])
+        df = read_raw_csv(raw_files, header=None, delimiter=',', dtype=str, names=[str(i) for i in range(14)])
         time = df['0'] + ' ' + df['1']
         dt = pd.to_datetime(time, format='%m/%d/%Y %H:%M:%S.%f')
         dd = (dt - datetime(2025, 1, 1)).dt.total_seconds() / 86400
@@ -115,14 +112,12 @@ def read_gps_PASHR(gpsdir, tmin, tmax, bin_edges, bin_centers):
 def read_gps_INVTG(gpsdir, tmin, tmax, bin_edges, bin_centers):
     result = {}
     loaddate = tmin.strftime('%Y%m%d')
-    search = f'POSMV-V5-INVTG-RAW_{loaddate}-'
-    raw_files = [f for f in os.listdir(gpsdir) if f.startswith(search) and f.endswith('.Raw')]
+    raw_files = glob.glob(os.path.join(gpsdir, f'POSMV-V5-INVTG-RAW_{loaddate}-*.Raw'))
     if not raw_files:
         result['status'] = 1
         return result
-    loadname = os.path.join(gpsdir, raw_files[0])
     try:
-        df = pd.read_csv(loadname, header=None, delimiter=',', dtype=str, names=[str(i) for i in range(14)])
+        df = read_raw_csv(raw_files, header=None, delimiter=',', dtype=str, names=[str(i) for i in range(14)])
         time = df['0'] + ' ' + df['1']
         dt = pd.to_datetime(time, format='%m/%d/%Y %H:%M:%S.%f')
         dd = (dt - datetime(2025, 1, 1)).dt.total_seconds() / 86400
@@ -138,7 +133,7 @@ def read_gps_INVTG(gpsdir, tmin, tmax, bin_edges, bin_centers):
         for k in range(nbin):
             idx = (cats == k)
             if np.any(idx):
-                cog_b[k] = np.nanmean(cog[idx])
+                cog_b[k] = circular_mean_deg(cog[idx])
                 sog_b[k] = np.nanmean(sog[idx])
         result['dd'] = bin_centers
         result['cog'] = cog_b
@@ -152,15 +147,13 @@ def read_gps_INVTG(gpsdir, tmin, tmax, bin_edges, bin_centers):
 def read_gps_INGGA(gpsdir, tmin, tmax, bin_edges, bin_centers):
     result = {}
     loaddate = tmin.strftime('%Y%m%d')
-    search = f'POSMV-V5-INGGA-RAW_{loaddate}-'
-    raw_files = [f for f in os.listdir(gpsdir) if f.startswith(search) and f.endswith('.Raw')]
+    raw_files = glob.glob(os.path.join(gpsdir, f'POSMV-V5-INGGA-RAW_{loaddate}-*.Raw'))
     if not raw_files:
         result['status'] = 1
         return result
-    loadname = os.path.join(gpsdir, raw_files[0])
     try:
-        df = pd.read_csv(
-            loadname,
+        df = read_raw_csv(
+            raw_files,
             header=None,
             delimiter=',',
             dtype=str,
@@ -226,14 +219,11 @@ def read_tsg(logstart, logend, sharedrive, datadrive, cruise_ID):
     if TSG['status'] == 0 and SBE38['status'] == 0:
         try:
             fname = os.path.join(gpsdir, f"GPS_{logstart}.nc")
-            # Read lat/lon from existing GPS netcdf (use xarray or netCDF4)
-            import xarray as xr
-            ds_gps = xr.open_dataset(fname)
-            latnew = ds_gps['lat'].values
-            lonnew = ds_gps['lon'].values
+            # Read lat/lon from existing GPS netcdf
+            with xr.open_dataset(fname) as ds_gps:
+                latnew = ds_gps['lat'].values
+                lonnew = ds_gps['lon'].values
 
-            # Create output structure for NetCDF writing (this is where xarray is helpful)
-            import xarray as xr
             dims = ('dday',)
             data_vars = {
                 'dday': (dims, TSG['dd']),
@@ -268,16 +258,12 @@ def read_tsg(logstart, logend, sharedrive, datadrive, cruise_ID):
             savename = os.path.join(savedir, sname)
             if os.path.isfile(savename):
                 os.remove(savename)
-            ds_out.to_netcdf('tmp.nc')
-            ds_out.close()
-            cmd = "ncks --mk_rec_dmn dday " + 'tmp.nc' + " -O -o " + savename
-            subprocess.run(cmd, check=True, shell=True)
-            os.remove('tmp.nc')
+            write_record_nc(ds_out, savename)
             print_status(f"Created TSG file for {logstart}")
         except Exception as e:
             print_status(f"TSG: GPS data not created yet for {logstart} -- {e}","WARN")
     else:
-        print(f"TSG status not ready for {logstart}","WARN")
+        print_status(f"TSG status not ready for {logstart}","WARN")
 
 def read_tsg_TSG(tsgdir, tmin, tmax, bin_edges, bin_centers):
     """Read and bin TSG data from .Raw file."""
@@ -286,13 +272,12 @@ def read_tsg_TSG(tsgdir, tmin, tmax, bin_edges, bin_centers):
     files = glob.glob(searchpat)
     if not files:
         return {'status': 1}
-    fname = files[0]
     TSG = {}
 
     try:
         # Read the .RAW file
-        df = pd.read_csv(
-            fname, delimiter=",", header=None,
+        df = read_raw_csv(
+            files, delimiter=",", header=None,
             names=['date', 'time', 'T', 'C', 'S', 'soundsp'],
             dtype=str
         )
@@ -337,10 +322,9 @@ def read_tsg_SBE38(tsgdir, tmin, tmax, bin_edges, bin_centers):
     files = glob.glob(searchpat)
     if not files:
         return {'status': 1}
-    fname = files[0]
     SBE38 = {}
     try:
-        df = pd.read_csv(fname, delimiter=",", header=None, names=['date', 'time', 'intakeT'], dtype=str)
+        df = read_raw_csv(files, delimiter=",", header=None, names=['date', 'time', 'intakeT'], dtype=str)
 
         # Try to convert intakeT to float; non-numeric (startup text) becomes NaN
         df['intakeT'] = pd.to_numeric(df['intakeT'], errors='coerce')
@@ -401,9 +385,9 @@ def read_met(logstart, logend, sharedrive, datadrive, cruise_ID):
         and all(len(d['dd']) == nbin for d in checks)):
         try:
             gps_file = os.path.join(gpsdir, f"GPS_{logstart}.nc")
-            ds_gps = xr.open_dataset(gps_file)
-            latnew = ds_gps['lat'].values
-            lonnew = ds_gps['lon'].values
+            with xr.open_dataset(gps_file) as ds_gps:
+                latnew = ds_gps['lat'].values
+                lonnew = ds_gps['lon'].values
 
             sname = f"MET_{logstart}.nc"
             savename = os.path.join(savedir, sname)
@@ -462,11 +446,7 @@ def read_met(logstart, logend, sharedrive, datadrive, cruise_ID):
             ds_out["LW"].attrs.update(long_name="longwave radiation", units="W/m^2")
             ds_out["SW"].attrs.update(long_name="shortwave radiation", units="W/m^2")
 
-            ds_out.to_netcdf('tmp.nc')
-            ds_out.close()
-            cmd = "ncks --mk_rec_dmn dday " + 'tmp.nc' + " -O -o " + savename
-            subprocess.run(cmd, check=True, shell=True)
-            os.remove('tmp.nc')
+            write_record_nc(ds_out, savename)
             print_status(f"Created MET file for {logstart}")
         except Exception as e:
             print_status(f"MET: GPS data not created yet for {logstart} -- {e}","WARN")
@@ -482,7 +462,7 @@ def read_met_SONIC(metdir, tmin, tmax, bin_edges, bin_centers):
         return SONIC
 
     try:
-        df = pd.read_csv(files[0], delimiter=',', header=None,
+        df = read_raw_csv(files, delimiter=',', header=None,
                          names=['d1','d2','d3','TWS','TWD','junk1','junk2','junk3','junk4','junk5','junk6'])
         # Time conversion
         time = df['d1'] + ' ' + df['d2']
@@ -531,8 +511,8 @@ def _read_met_bridge_wind(metdir, tmin, tmax, bin_edges, bin_centers, side):
         TW["status"] = 1
         return TW
     try:
-        df = pd.read_csv(
-            files[0], delimiter=',', header=None,
+        df = read_raw_csv(
+            files, delimiter=',', header=None,
             names=['d1','d2','d3','TWS','TWD','junk1','junk2','junk3','junk4','junk5','junk6']
         )
         # Time conversion
@@ -575,7 +555,7 @@ def read_met_BOWMET(metdir, tmin, tmax, bin_edges, bin_centers):
         BOWMET["status"] = 1
         return BOWMET
     try:
-        df = pd.read_csv(files[0], delimiter=',', header=None,
+        df = read_raw_csv(files, delimiter=',', header=None,
                          names=['d1','d2','d3','RWS','RWD','AT','RH','P','junk1'])
         # Parse datetime and decimal day
         time = df['d1'] + ' ' + df['d2']
@@ -605,7 +585,7 @@ def read_met_BOWMET(metdir, tmin, tmax, bin_edges, bin_centers):
             idx = (cats == k)
             if np.any(idx):
                 BOWMET["RWS"][k] = np.nanmean(RWS[idx])
-                BOWMET["RWD"][k] = np.nanmean(RWD[idx])
+                BOWMET["RWD"][k] = circular_mean_deg(RWD[idx])
                 BOWMET["AT"][k]  = np.nanmean(AT[idx])
                 BOWMET["RH"][k]  = np.nanmean(RH[idx])
                 BOWMET["P"][k]   = np.nanmean(P[idx])
@@ -624,7 +604,7 @@ def read_met_RAD(metdir, tmin, tmax, bin_edges, bin_centers):
         RAD["status"] = 1
         return RAD
     try:
-        df = pd.read_csv(files[0], delimiter=',', header=None,
+        df = read_raw_csv(files, delimiter=',', header=None,
                          names=['d1','d2','d3','junk1','LW','junk2','SW'])
         time = df['d1'] + ' ' + df['d2']
         dt = pd.to_datetime(time, format='%m/%d/%Y %H:%M:%S.%f')
@@ -674,7 +654,8 @@ def make_flux(logstart, sharedrive):
         return
 
     # Read data
-    with xr.open_dataset(metfile) as ds_met, xr.open_dataset(tsgfile) as ds_tsg:
+    # decode_times=False keeps dday as float days, matching the other files
+    with xr.open_dataset(metfile, decode_times=False) as ds_met, xr.open_dataset(tsgfile, decode_times=False) as ds_tsg:
         TWS = ds_met['TWS'].values
         AT = ds_met['AT'].values
         RH = ds_met['RH'].values
@@ -684,7 +665,7 @@ def make_flux(logstart, sharedrive):
         lat = ds_met['lat'].values
         lon = ds_met['lon'].values
         dday = ds_met['dday'].values
-        SST = ds_tsg['T'].values
+        SST = ds_tsg['intakeT'].values  # SBE38 intake temperature
 
     # --- Compute using COARE
     A = coare_35(
@@ -717,7 +698,7 @@ def make_flux(logstart, sharedrive):
         }
     )
 
-    #ds_out['dday'].attrs.update(long_name="decimal day (UTC)", units="days since Jan 01, 2025")
+    ds_out['dday'].attrs.update(long_name="decimal day (UTC)", units="days since Jan 01, 2025")
     ds_out['lat'].attrs.update(long_name="latitude", units="degrees_north")
     ds_out['lon'].attrs.update(long_name="longitude", units="degrees_east")
     ds_out['tau'].attrs.update(long_name="surface wind stress", units="N/m^2")
@@ -727,11 +708,7 @@ def make_flux(logstart, sharedrive):
     ds_out['swdwn'].attrs.update(long_name="downwelling shortwave radiation", units="W/m^2")
     ds_out['nhf'].attrs.update(long_name="net heat flux", units="W/m^2")
 
-    ds_out.to_netcdf('tmp.nc')
-    ds_out.close()
-    cmd = "ncks --mk_rec_dmn dday " + 'tmp.nc' + " -O -o " + savename
-    subprocess.run(cmd, check=True, shell=True)
-    os.remove('tmp.nc')
+    write_record_nc(ds_out, savename)
 
     print(f"Created FLUX file for {logstart}")
 
@@ -861,11 +838,13 @@ def subset_adcp_compr(sharedrive, datadrive, cruisestart, cruiseend, cruise_ID):
 
     # --- Find and filter files ---
     files = sorted(glob.glob(os.path.join(adcpdir, "wh300_*_compr.nc")))
+    # UHDAS daily files are named by zero-based year day
+    startday = cruisestart.timetuple().tm_yday - 1
     selected = []
     for f in files:
         try:
             yd = int(os.path.basename(f).split('_')[1])
-            if yd >= 146:
+            if yd >= startday:
                 selected.append(f)
         except Exception:
             continue
@@ -890,7 +869,11 @@ def subset_adcp_compr(sharedrive, datadrive, cruisestart, cruiseend, cruise_ID):
     # --- Concatenate along unlimited 'time' dimension ---
     #if not os.path.isfile(compiled_nc):
     cmd = ['ncrcat','-O'] + rec_files + [compiled_nc]
-    subprocess.run(cmd, check=True)
+    try:
+        subprocess.run(cmd, check=True)
+    except Exception as e:
+        print_status(f"ADCP ncrcat failed: {e}", "ERROR")
+        return
     print(f"Concatenated {len(rec_files)} ADCP daily files to {compiled_nc}")
 
     # --- Subset and save ---
@@ -1007,7 +990,6 @@ def read_wamos_WAMOS(wamosdir, tmin, tmax, bin_edges, bin_centers):
         if not files:
             WAMOS["status"] = 1
             return WAMOS
-        loadname = files[0]
 
         # col_names = [
         #     'date', 'time', 'a', 'sig_wave_h', 'mean_period', 'peak_wavedir',
@@ -1025,17 +1007,18 @@ def read_wamos_WAMOS(wamosdir, tmin, tmax, bin_edges, bin_centers):
         N_expected = len(col_names)
 
         rows = []
-        with open(loadname, 'r') as f:
-            for linenum, line in enumerate(f, 1):
-                # Split on comma, strip whitespace and newline
-                parts = [p.strip() for p in line.rstrip('\n').split(',')]
-                if len(parts) < N_expected:
-                    # Pad with empty strings (interpreted as NaN later)
-                    parts += [np.nan] * (N_expected - len(parts))
-                elif len(parts) > N_expected:
-                    print(f"WAMOS reader: Line {linenum} has {len(parts)} entries, expected {N_expected}. Filling with NaN.")
-                    parts = parts[:N_expected]  # Truncate extras
-                rows.append(parts)
+        for loadname in sorted(files):
+            with open(loadname, 'r') as f:
+                for linenum, line in enumerate(f, 1):
+                    # Split on comma, strip whitespace and newline
+                    parts = [p.strip() for p in line.rstrip('\n').split(',')]
+                    if len(parts) < N_expected:
+                        # Pad with empty strings (interpreted as NaN later)
+                        parts += [np.nan] * (N_expected - len(parts))
+                    elif len(parts) > N_expected:
+                        print(f"WAMOS reader: Line {linenum} has {len(parts)} entries, expected {N_expected}. Filling with NaN.")
+                        parts = parts[:N_expected]  # Truncate extras
+                    rows.append(parts)
 
         df = pd.DataFrame(rows, columns=col_names)
         dt = pd.to_datetime(df['date'] + ' ' + df['time'], format='%m/%d/%Y %H:%M:%S.%f', errors='coerce')
@@ -1055,7 +1038,7 @@ def read_wamos_WAMOS(wamosdir, tmin, tmax, bin_edges, bin_centers):
         cats = pd.cut(dd, bin_edges, labels=False, include_lowest=True, right=False)
         nbin = len(bin_centers)
         def safe_nan(series):  # -5 is sometimes fill
-            arr = pd.to_numeric(series, errors='coerce').values
+            arr = pd.to_numeric(series, errors='coerce').to_numpy(dtype=float, copy=True)
             arr[arr < -5] = np.nan
             return arr
 
@@ -1126,8 +1109,4 @@ def save_wamos_to_netcdf(savename, WAMOS):
     ds['currentdir'].attrs = {'long_name': 'current direction', 'units': 'deg'}
     ds['currentspeed'].attrs = {'long_name': 'current speed', 'units': 'm/s'}
 
-    ds.to_netcdf('tmp.nc')
-    ds.close()
-    cmd = f'ncks --mk_rec_dmn dday tmp.nc -O -o "{savename}"'
-    subprocess.run(cmd, check=True, shell=True)
-    os.remove('tmp.nc')
+    write_record_nc(ds, savename)

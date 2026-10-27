@@ -55,8 +55,8 @@ def compile_all(datadir, compiledir, nameUpper):
         # ncrcat does not accept wildcards in quotes; expand list
         cmd = ['ncrcat'] + files + [savename]
         subprocess.run(cmd, check=True)
-        cmd = 'ncatted -a history,global,d,, ' + [savename]
-        subprocess.run(cmd, check=True, shell=True)
+        cmd = ['ncatted', '-a', 'history,global,d,,', savename] # Remove long history
+        subprocess.run(cmd, check=True)
         print_status(f"Wrote {savename}","INFO")
     except Exception as e:
         print_status(f"ncrcat failed: {e}","ERROR")
@@ -65,11 +65,8 @@ def compile_all(datadir, compiledir, nameUpper):
     # Save .mat 
     ds_combined = xr.open_dataset(savename)
     savename_mat = os.path.join(compiledir, nameUpper.lower()+"_compiled.mat")
-    save_mat(ds_combined, savename_mat)
+    save_mat(ds_combined, savename_mat, nameUpper)
     ds_combined.close()
-
-import glob, os, subprocess, shutil
-import xarray as xr
 
 def extract_file_time(filename, prefix):
     basename = os.path.basename(filename)

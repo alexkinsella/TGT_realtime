@@ -1,23 +1,22 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from data_readers import (
     read_gps, read_tsg, read_met, read_wamos, make_flux, subset_adcp, subset_adcp_compr
 )
 
 from compilers import compile_incremental
+import config
 
 def situational_awareness_main(sharedrive, datadrive):
-    """Situational awareness processing code for ASTRAL 2025 IOP2"""
+    """Situational awareness processing code. Cruise settings are in config.py."""
 
     datadir = os.path.join(sharedrive, 'For_Science', 'Situational_Awareness_Processing', 'data')
 
-    cruisestart = datetime(2025, 5, 27, 19, 30, 0)
-    #cruisestart = datetime(2025, 5, 9, 17, 0, 0)
-    #cruiseend = datetime(2025, 5, 12, 18, 40, 0)
-    today = datetime.utcnow().replace(second=0, microsecond=0)
+    cruisestart = config.CRUISE_START
+    cruise_ID = config.CRUISE_ID
+    today = datetime.now(timezone.utc).replace(tzinfo=None, second=0, microsecond=0)
     today -= timedelta(minutes=today.minute % 10)
-    cruiseend = today
-    cruise_ID = 'TN444'
+    cruiseend = today if config.CRUISE_END is None else min(today, config.CRUISE_END)
     print(f"Run time: {today}")
 
     looptime = [cruisestart + timedelta(minutes=10 * i) for i in range(int((cruiseend - cruisestart).total_seconds() // 600) + 1)]
@@ -72,3 +71,9 @@ def compile_main(sharedrive):
     compile_incremental(os.path.join(sharedrive, 'For_Science', 'Situational_Awareness_Processing', 'data', 'met'), compiledir, "MET")
     compile_incremental(os.path.join(sharedrive, 'For_Science', 'Situational_Awareness_Processing', 'data', 'wamos'), compiledir, "WAMOS")
     compile_incremental(os.path.join(sharedrive, 'For_Science', 'Situational_Awareness_Processing', 'data', 'flux'), compiledir, "FLUX")
+
+
+if __name__ == "__main__":
+    # Single run, without the autorun loop
+    situational_awareness_main(config.SHAREDRIVE, config.DATADRIVE)
+    compile_main(config.SHAREDRIVE)

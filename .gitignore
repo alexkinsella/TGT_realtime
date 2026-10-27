@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+*_venv/
+venv/
+.venv/
+
+# Output and temp files
+*.nc
+*.mat
+
+# OS
+.DS_Store

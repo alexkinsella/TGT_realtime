@@ -8,7 +8,8 @@ authors:
     email: alex.kinsella@whoi.edu
   - family-names: Kannad
     given-names: Ankitha
-date-released: 2026-10-27  # update to the actual release date when tagging
+    orcid: "https://orcid.org/0000-0002-9026-491X"
+date-released: 2026-10-27
 license: MIT
 repository-code: "https://github.com/alexkinsella/TGT_realtime"
 # Add DOI here after the Zenodo release:

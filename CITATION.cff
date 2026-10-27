@@ -1,13 +1,16 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "R/V Thomas G. Thompson Automated Realtime Data Processing"
-version: "1.0.0"
+version: "1.1.0"
 authors:
   - family-names: Kinsella
     given-names: Alex
+    email: alex.kinsella@whoi.edu
   - family-names: Kannad
     given-names: Ankitha
-date-released: 2025-06-18
+    orcid: "https://orcid.org/0000-0002-9026-491X"
+date-released: 2026-10-27
 license: MIT
-# Add DOI here after Zenodo release:
+repository-code: "https://github.com/alexkinsella/TGT_realtime"
+# Add DOI here after the Zenodo release:
 # doi: 10.5281/zenodo.xxxxxxx

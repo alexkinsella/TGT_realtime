@@ -1,5 +1,7 @@
 # TGT_realtime
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23695975.svg)](https://doi.org/10.5281/zenodo.23695975)
+
 Python code for real-time processing of shipboard instruments on the R/V Thomas G. Thompson. It generates continuously updating `.nc` and `.mat` files from GPS, TSG, MET, ADCP, and WAMOS data, and computes bulk air-sea fluxes using the COARE 3.5 algorithm.
 
 If you're heading out on a cruise aboard the Thompson, this package can help generate situational awareness files and real-time visualizations directly from shipboard data.
@@ -169,7 +171,7 @@ The `matlab/` directory contains the original MATLAB version used on EKAMSAT IOP
 ## License and Citation
 
 Licensed under the **MIT License**.
-If this software is useful for your cruise, please cite it using the information in [`CITATION.cff`](CITATION.cff) (GitHub's "Cite this repository" button).
+If this software is useful for your cruise, please cite it using DOI [10.5281/zenodo.23695975](https://doi.org/10.5281/zenodo.23695975), which always points to the latest version. Full citation information is in [`CITATION.cff`](CITATION.cff) (GitHub's "Cite this repository" button).
 
 ---
 
